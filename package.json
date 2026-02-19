@@ -4,7 +4,7 @@
   "description": "Smart Study Companion App",
   "main": "app.js",
   "scripts": {
-    "start": "npx serve .",
+    "start": "npx http-server . -p $PORT -c-1",
     "build": "echo 'No build step required'"
   },
   "keywords": [
@@ -15,6 +15,9 @@
   "author": "Satvik Singh",
   "license": "ISC",
   "dependencies": {
-    "serve": "^14.2.0"
+    "http-server": "^14.1.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
   }
 }
