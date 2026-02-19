@@ -1,0 +1,20 @@
+{
+  "name": "study-ai",
+  "version": "1.0.0",
+  "description": "Smart Study Companion App",
+  "main": "app.js",
+  "scripts": {
+    "start": "npx serve .",
+    "build": "echo 'No build step required'"
+  },
+  "keywords": [
+    "study",
+    "flashcards",
+    "vanilla-js"
+  ],
+  "author": "Satvik Singh",
+  "license": "ISC",
+  "dependencies": {
+    "serve": "^14.2.0"
+  }
+}
