@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Study AI — Smart Study Companion</title>
+    <meta name="description"
+        content="Organize subjects, chapters, definitions, and Q&A. Test your memory with intelligent answer checking." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="index.css" />
+</head>
+
+<body>
+
+    <canvas id="confetti-canvas"></canvas>
+
+    <!-- ───── TOP BAR ───── -->
+    <header id="topbar">
+        <div class="topbar-left">
+            <button id="btn-back" class="icon-btn hidden" aria-label="Go back">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 12H5" />
+                    <path d="m12 19-7-7 7-7" />
+                </svg>
+            </button>
+            <h1 id="topbar-title">Study AI</h1>
+        </div>
+        <div class="topbar-center">
+            <div id="search-bar" class="search-bar">
+                <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8" />
+                    <path d="m21 21-4.3-4.3" />
+                </svg>
+                <input id="search-input" type="text" placeholder="Search subjects, chapters, terms…"
+                    autocomplete="off" />
+                <div id="search-results" class="search-results hidden"></div>
+            </div>
+        </div>
+        <div class="topbar-right">
+            <button id="btn-theme-toggle" class="icon-btn" title="Toggle Light/Dark Mode">
+                <svg id="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hidden">
+                    <circle cx="12" cy="12" r="5" />
+                    <line x1="12" y1="1" x2="12" y2="3" />
+                    <line x1="12" y1="21" x2="12" y2="23" />
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                    <line x1="1" y1="12" x2="3" y2="12" />
+                    <line x1="21" y1="12" x2="23" y2="12" />
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                </svg>
+                <svg id="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                </svg>
+            </button>
+            <button id="btn-stats-nav" class="icon-btn" title="Study Stats">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 20V10" />
+                    <path d="M12 20V4" />
+                    <path d="M6 20v-6" />
+                </svg>
+            </button>
+            <button id="btn-history-nav" class="icon-btn" title="History Log">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                </svg>
+            </button>
+            <button id="btn-test-nav" class="pill-btn accent" title="Go to Test Mode">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4Z" />
+                </svg>
+                Test
+            </button>
+        </div>
+    </header>
+
+    <div id="shortcut-toast" class="shortcut-toast hidden"></div>
+
+    <!-- ───── VIEW: HOME (Subjects) ───── -->
+    <main id="view-home" class="view active">
+        <div class="section-header">
+            <h2>Your Subjects</h2>
+            <div class="header-actions">
+                <button id="btn-import" class="pill-btn secondary small" title="Import JSON">⬆ Import</button>
+                <button id="btn-export" class="pill-btn secondary small" title="Export JSON">⬇ Export</button>
+                <button id="btn-add-subject" class="pill-btn primary">+ Add Subject</button>
+            </div>
+        </div>
+        <div id="due-review-banner" class="due-banner hidden">
+            <span id="due-review-count"></span>
+            <button id="btn-review-due" class="pill-btn accent small">Review Now</button>
+        </div>
+        <input type="file" id="import-file-input" accept=".json" class="hidden" />
+        <div id="subject-grid" class="card-grid"></div>
+        <div id="empty-home" class="empty-state">
+            <div class="empty-icon">📚</div>
+            <p>No subjects yet. Add your first subject to get started!</p>
+        </div>
+    </main>
+
+    <!-- ───── VIEW: SUBJECT DETAIL (Chapters) ───── -->
+    <main id="view-subject" class="view">
+        <div class="section-header">
+            <h2 id="subject-detail-title">Chapters</h2>
+            <div class="header-actions">
+                <button id="btn-add-chapter" class="pill-btn primary">+ Add Chapter</button>
+            </div>
+        </div>
+        <div id="chapter-grid" class="card-grid"></div>
+        <div id="empty-subject" class="empty-state">
+            <div class="empty-icon">📖</div>
+            <p>No chapters yet. Add your first chapter!</p>
+        </div>
+    </main>
+
+    <!-- ───── VIEW: CHAPTER DETAIL ───── -->
+    <main id="view-chapter" class="view">
+        <div class="chapter-tabs">
+            <button class="tab-btn active" data-tab="definitions">Definitions</button>
+            <button class="tab-btn" data-tab="qa">Q &amp; A</button>
+            <button class="tab-btn" data-tab="notes">Notes</button>
+        </div>
+        <section id="tab-definitions" class="tab-panel active">
+            <div class="section-header">
+                <h3>Definitions</h3>
+                <div class="header-actions">
+                    <select id="filter-def-tag" class="tag-filter">
+                        <option value="all">All Tags</option>
+                        <option value="easy">🟢 Easy</option>
+                        <option value="hard">🔴 Hard</option>
+                        <option value="review">🟡 Review</option>
+                    </select>
+                    <button id="btn-print-chapter" class="pill-btn secondary small">🖨 Print</button>
+                    <button id="btn-add-def" class="pill-btn primary small">+ Add</button>
+                </div>
+            </div>
+            <div id="def-list" class="item-list"></div>
+            <div id="empty-def" class="empty-state small">
+                <p>No definitions yet.</p>
+            </div>
+        </section>
+        <section id="tab-qa" class="tab-panel">
+            <div class="section-header">
+                <h3>Questions &amp; Answers</h3>
+                <div class="header-actions">
+                    <select id="filter-qa-tag" class="tag-filter">
+                        <option value="all">All Tags</option>
+                        <option value="easy">🟢 Easy</option>
+                        <option value="hard">🔴 Hard</option>
+                        <option value="review">🟡 Review</option>
+                    </select>
+                    <button id="btn-add-qa" class="pill-btn primary small">+ Add</button>
+                </div>
+            </div>
+            <div id="qa-list" class="item-list"></div>
+            <div id="empty-qa" class="empty-state small">
+                <p>No Q&amp;A pairs yet.</p>
+            </div>
+        </section>
+        <section id="tab-notes" class="tab-panel">
+            <div class="section-header">
+                <h3>Chapter Notes</h3>
+                <span id="notes-saved-indicator" class="saved-indicator hidden">✓ Saved</span>
+            </div>
+            <textarea id="notes-textarea" class="input-field textarea notes-area"
+                placeholder="Type your notes here… formulas, bullet points, anything!" rows="14"></textarea>
+        </section>
+    </main>
+
+    <!-- ───── VIEW: TEST SETUP ───── -->
+    <main id="view-test-setup" class="view">
+        <div class="test-setup-card glass-card">
+            <h2>Test Your Knowledge</h2>
+            <p class="subtitle">Choose what you want to be tested on.</p>
+
+            <label class="field-label">Subjects & Chapters</label>
+            <div id="test-chapter-checkboxes" class="chapter-checkboxes"></div>
+
+            <label class="field-label">Mode</label>
+            <select id="test-mode-select" class="input-field">
+                <option value="written">✍️ Written Test</option>
+                <option value="flashcard">🔄 Flashcard Review</option>
+                <option value="blanks">📝 Fill-in-the-Blanks</option>
+            </select>
+
+            <label class="field-label">Scope</label>
+            <select id="test-scope-select" class="input-field">
+                <option value="all-qa">All Q&amp;A</option>
+                <option value="all-def">All Definitions</option>
+                <option value="due">📅 Due for Review (Spaced)</option>
+                <option value="specific">Specific Item…</option>
+            </select>
+
+            <div id="specific-item-picker" class="hidden">
+                <label class="field-label">Pick Item</label>
+                <select id="test-item-select" class="input-field"></select>
+            </div>
+
+            <label class="field-label">Timer</label>
+            <select id="test-timer-select" class="input-field">
+                <option value="0">⏱ No Timer</option>
+                <option value="60">Easy — 60s per question</option>
+                <option value="30">Medium — 30s per question</option>
+                <option value="15">Hard — 15s per question</option>
+            </select>
+
+            <button id="btn-start-test" class="pill-btn accent wide">Start Test</button>
+        </div>
+    </main>
+
+    <!-- ───── VIEW: TEST RUNNER ───── -->
+    <main id="view-test-runner" class="view">
+        <div class="test-runner-card glass-card">
+            <div class="test-progress">
+                <div class="test-progress-top">
+                    <span id="test-progress-text">Question 1 / 5</span>
+                    <span id="test-timer-display" class="timer-display hidden">60s</span>
+                </div>
+                <div class="progress-bar">
+                    <div id="test-progress-fill" class="progress-fill"></div>
+                </div>
+                <div id="timer-bar" class="timer-bar hidden">
+                    <div id="timer-bar-fill" class="timer-bar-fill"></div>
+                </div>
+            </div>
+            <div id="test-prompt" class="test-prompt"></div>
+            <textarea id="test-answer-input" class="input-field textarea" placeholder="Type your answer here…"
+                rows="5"></textarea>
+            <button id="btn-check-answer" class="pill-btn accent wide">Check Answer</button>
+            <div id="test-result" class="test-result hidden">
+                <div id="result-score" class="result-score"></div>
+                <div id="result-diff" class="result-diff"></div>
+                <div class="result-actions">
+                    <button id="btn-next-question" class="pill-btn primary">Next →</button>
+                    <button id="btn-finish-test" class="pill-btn secondary">Finish Test</button>
+                </div>
+            </div>
+            <div id="test-summary" class="test-summary hidden">
+                <div class="summary-circle">
+                    <svg viewBox="0 0 120 120">
+                        <circle cx="60" cy="60" r="54" class="summary-bg" />
+                        <circle id="summary-ring" cx="60" cy="60" r="54" class="summary-fg" />
+                    </svg>
+                    <span id="summary-pct">0%</span>
+                </div>
+                <h3 id="summary-label">Great Job!</h3>
+                <p id="summary-detail"></p>
+                <button id="btn-test-again" class="pill-btn accent wide">Test Again</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- ───── VIEW: FLASHCARD ───── -->
+    <main id="view-flashcard" class="view">
+        <div class="flashcard-container">
+            <div class="flashcard-progress">
+                <span id="fc-progress-text">Card 1 / 5</span>
+                <div class="progress-bar">
+                    <div id="fc-progress-fill" class="progress-fill"></div>
+                </div>
+            </div>
+            <div id="flashcard-scene" class="flashcard-scene">
+                <div id="flashcard" class="flashcard">
+                    <div class="flashcard-face flashcard-front">
+                        <div class="fc-label" id="fc-front-label">Question</div>
+                        <div class="fc-content" id="fc-front-content"></div>
+                        <div class="fc-hint">Click or press Space to flip</div>
+                    </div>
+                    <div class="flashcard-face flashcard-back">
+                        <div class="fc-label" id="fc-back-label">Answer</div>
+                        <div class="fc-content" id="fc-back-content"></div>
+                        <div class="fc-hint">Click or press Space to flip back</div>
+                    </div>
+                </div>
+            </div>
+            <div class="flashcard-actions">
+                <button id="btn-fc-prev" class="pill-btn secondary">← Prev</button>
+                <button id="btn-fc-hard" class="pill-btn danger small">Need Review</button>
+                <button id="btn-fc-easy" class="pill-btn primary small">Got It ✓</button>
+                <button id="btn-fc-next" class="pill-btn secondary">Next →</button>
+            </div>
+            <div id="fc-summary" class="fc-summary hidden">
+                <h3>Flashcard Review Complete!</h3>
+                <p id="fc-summary-detail"></p>
+                <button id="btn-fc-done" class="pill-btn accent wide">Done</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- ───── VIEW: HISTORY ───── -->
+    <main id="view-history" class="view">
+        <div class="section-header">
+            <h2>Test History</h2>
+            <button id="btn-clear-history" class="pill-btn danger small">Clear All</button>
+        </div>
+        <div id="history-list" class="history-list"></div>
+        <div id="empty-history" class="empty-state">
+            <div class="empty-icon">📋</div>
+            <p>No test history yet.</p>
+        </div>
+    </main>
+
+    <!-- ───── VIEW: STATS ───── -->
+    <main id="view-stats" class="view">
+        <div class="section-header">
+            <h2>Study Dashboard</h2>
+        </div>
+        <div class="stats-grid">
+            <div class="stat-card glass-card">
+                <div class="stat-number" id="stat-total-tests">0</div>
+                <div class="stat-label">Tests Taken</div>
+            </div>
+            <div class="stat-card glass-card">
+                <div class="stat-number" id="stat-avg-score">0%</div>
+                <div class="stat-label">Average Score</div>
+            </div>
+            <div class="stat-card glass-card">
+                <div class="stat-number" id="stat-streak">0</div>
+                <div class="stat-label">Day Streak 🔥</div>
+            </div>
+            <div class="stat-card glass-card">
+                <div class="stat-number" id="stat-total-items">0</div>
+                <div class="stat-label">Total Items</div>
+            </div>
+        </div>
+        <div class="stats-section glass-card">
+            <h3>Streak Calendar</h3>
+            <div id="streak-grid" class="streak-grid"></div>
+        </div>
+        <div class="stats-section glass-card">
+            <h3>Score by Chapter</h3>
+            <div id="chapter-bars" class="chapter-bars"></div>
+        </div>
+        <div class="stats-section glass-card">
+            <h3>Weakest Items</h3>
+            <div id="weakest-items" class="weakest-items"></div>
+            <p id="no-weak-items" class="empty-state small hidden">
+            <p>No weak items yet!</p>
+            </p>
+        </div>
+    </main>
+
+    <!-- MODAL -->
+    <div id="modal-overlay" class="modal-overlay hidden">
+        <div class="modal glass-card">
+            <h3 id="modal-title">Title</h3>
+            <form id="modal-form">
+                <div id="modal-fields"></div>
+                <div class="modal-actions">
+                    <button type="button" id="btn-modal-cancel" class="pill-btn secondary">Cancel</button>
+                    <button type="submit" id="btn-modal-save" class="pill-btn primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- CONFIRM -->
+    <div id="confirm-overlay" class="modal-overlay hidden">
+        <div class="modal glass-card confirm-modal">
+            <p id="confirm-message">Are you sure?</p>
+            <div class="modal-actions">
+                <button id="btn-confirm-no" class="pill-btn secondary">Cancel</button>
+                <button id="btn-confirm-yes" class="pill-btn danger">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script src="features.js"></script>
+</body>
+
+</html>
