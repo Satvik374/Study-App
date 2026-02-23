@@ -1,52 +1,62 @@
 # Study AI - Smart Study Companion
 
-A powerful, offline-first study app with Subjects, Chapters, Flashcards, Analytics, and Mobile support. Built with Vanilla JS, HTML, and CSS (no frameworks, no build step required).
+Offline-first study app with Subjects, Chapters, Flashcards, Tests, Analytics, and a new AI Study Teacher.
 
-## 🚀 How to Run
+## Run
 
-This is a static web application. You don't need to "build" anything.
-
-### Option 1: Direct Open (Easiest)
-
-Simply double-click the `index.html` file to open it in your browser.
-
-### Option 2: Live Server (Recommended)
-
-If you use VS Code:
-
-1. Install the "Live Server" extension.
-2. Right-click `index.html` and select **"Open with Live Server"**.
-
-### Option 3: Command Line (Python)
-
-If you have Python installed:
+1. Install dependencies:
 
 ```bash
-python -m http.server 8000
-# Then open http://localhost:8000
+npm install
 ```
 
-### Option 4: Command Line (Node.js)
+2. Configure AI provider in `.env` (or start from `.env.example`):
 
-If you have Node.js installed:
+```env
+PORT=3000
+OPENAI_COMPAT_BASE_URL=https://api.openai.com/v1
+OPENAI_COMPAT_MODEL=gpt-4.1-mini
+OPENAI_COMPAT_API_KEY=replace_with_your_api_key
+```
+
+3. Start app:
 
 ```bash
-npx serve
-# Then open the URL shown in terminal
+npm start
 ```
 
-## 🛠 Tech Stack
+4. Open:
 
-- **HTML5**: Semantic structure
-- **CSS3**: Variables, Flexbox, Grid, Glassmorphism
-- **JavaScript (ES6+)**: Modules, LocalStorage, DOM manipulation
-- **No Dependencies**: Pure vanilla code
+```text
+http://localhost:3000
+```
 
-## 📱 Features
+## AI Teacher Features
 
-- **Subjects & Chapters**: Organize your study material hierarchically.
-- **Flashcards**: Spaced Repetition (SM-2) algorithm.
-- **Tests**: Written, Fill-in-blanks, Multiple choice modes.
-- **Analytics**: Study streaks, weak areas, progress tracking.
-- **Mobile Friendly**: Fully responsive design.
-- **Offline First**: All data stored in LocalStorage.
+- Personalized teaching based on your in-app study data.
+- 1000-line system prompt loaded from `prompts/study_teacher_system_prompt.txt`.
+- Supports OpenAI-compatible chat completion APIs through backend proxy (`server.js`).
+- Can propose and auto-apply structured data-control actions (subjects, chapters, definitions, Q&A, notes, history, SR data).
+- Generates personalized tests from your stored knowledge and weak areas.
+- Uses Custom Math Text format:
+  - Inline: `[[m: expression ]]`
+  - Block:
+    - `[[math]]`
+    - math lines
+    - `[[/math]]`
+
+## Frontend-only mode (no AI backend)
+
+If you only need non-AI features, you can still run static mode:
+
+```bash
+npm run start:static
+```
+
+AI Teacher requires `npm start` (backend enabled).
+
+## Tech Stack
+
+- HTML5 + CSS3 + Vanilla JavaScript
+- LocalStorage for offline data
+- Node.js + Express backend proxy for AI calls

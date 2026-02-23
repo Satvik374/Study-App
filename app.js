@@ -123,7 +123,7 @@ const App = (() => {
 
   // ────── Router ──────
   const views = {};
-  ['home', 'subject', 'chapter', 'testSetup', 'testRunner', 'flashcard', 'history', 'stats'].forEach(n => {
+  ['home', 'subject', 'chapter', 'testSetup', 'testRunner', 'flashcard', 'history', 'stats', 'aiTeacher'].forEach(n => {
     const id = 'view-' + n.replace(/([A-Z])/g, '-$1').toLowerCase();
     views[n] = ($('#' + id)) || $(`#view-${n}`);
   });
@@ -131,6 +131,7 @@ const App = (() => {
   views.testSetup = $('#view-test-setup'); views.testRunner = $('#view-test-runner');
   views.flashcard = $('#view-flashcard');
   views.history = $('#view-history'); views.stats = $('#view-stats');
+  views.aiTeacher = $('#view-ai-teacher');
 
   const btnBack = $('#btn-back'), topTitle = $('#topbar-title');
   const Router = {
@@ -565,6 +566,313 @@ const App = (() => {
     reader.readAsText(file); e.target.value = '';
   });
 
+  function refreshActiveView() {
+    if (views.home?.classList.contains('active')) renderSubjects();
+    else if (views.subject?.classList.contains('active')) renderSubjectDetail();
+    else if (views.chapter?.classList.contains('active')) renderChapterDetail();
+  }
+
+  function cloneDeep(v) {
+    try { return JSON.parse(JSON.stringify(v)); } catch { return v; }
+  }
+
+  function getStudentDataSnapshot() {
+    const subjectCopy = cloneDeep(subjects);
+    let totalChapters = 0, totalDefinitions = 0, totalQA = 0;
+    subjectCopy.forEach(sub => {
+      totalChapters += sub.chapters?.length || 0;
+      (sub.chapters || []).forEach(ch => {
+        totalDefinitions += ch.definitions?.length || 0;
+        totalQA += ch.qa?.length || 0;
+      });
+    });
+    return {
+      generatedAt: new Date().toISOString(),
+      dataVersion: DATA_VERSION,
+      totals: {
+        subjects: subjectCopy.length,
+        chapters: totalChapters,
+        definitions: totalDefinitions,
+        qa: totalQA
+      },
+      subjects: subjectCopy,
+      history: cloneDeep(Store.history()),
+      srData: cloneDeep(Store.srData()),
+      settings: cloneDeep(Store.settings())
+    };
+  }
+
+  function cleanTags(tags) {
+    const allowed = new Set(['easy', 'hard', 'review']);
+    if (!Array.isArray(tags)) return [];
+    return tags.map(t => String(t || '').toLowerCase()).filter(t => allowed.has(t));
+  }
+
+  function findSubjectRef(action) {
+    if (action.subjectId) return subjects.find(s => s.id === action.subjectId) || null;
+    if (action.subjectName) {
+      const name = String(action.subjectName).toLowerCase();
+      return subjects.find(s => s.name.toLowerCase() === name) || null;
+    }
+    return null;
+  }
+
+  function findChapterRef(sub, action) {
+    if (!sub) return null;
+    if (action.chapterId) return sub.chapters.find(c => c.id === action.chapterId) || null;
+    if (action.chapterName) {
+      const name = String(action.chapterName).toLowerCase();
+      return sub.chapters.find(c => c.name.toLowerCase() === name) || null;
+    }
+    if (action.chapterNumber !== undefined) {
+      return sub.chapters.find(c => String(c.number) === String(action.chapterNumber)) || null;
+    }
+    return null;
+  }
+
+  function applyAIActions(actions) {
+    const results = [];
+    if (!Array.isArray(actions)) {
+      return { changed: false, applied: 0, failed: 1, results: [{ status: 'failed', reason: 'actions must be an array' }] };
+    }
+
+    let subjectsChanged = false;
+    let historyChanged = false;
+    let srChanged = false;
+    let history = Store.history();
+    const srData = Store.srData();
+
+    actions.forEach((rawAction, idx) => {
+      const action = rawAction && typeof rawAction === 'object' ? rawAction : {};
+      const type = String(action.type || '').trim().toLowerCase();
+      try {
+        if (!type) throw new Error('Missing action type');
+
+        if (type === 'add_subject') {
+          const name = String(action.name || '').trim();
+          if (!name) throw new Error('add_subject requires name');
+          const color = String(action.color || SUBJECT_COLORS[subjects.length % SUBJECT_COLORS.length]);
+          const newSub = { id: action.subjectId || uid(), name, color, chapters: [] };
+          subjects.push(newSub);
+          subjectsChanged = true;
+          results.push({ status: 'applied', index: idx, type, subjectId: newSub.id });
+          return;
+        }
+
+        if (type === 'update_subject') {
+          const sub = findSubjectRef(action);
+          if (!sub) throw new Error('Subject not found');
+          if (action.name !== undefined) sub.name = String(action.name).trim() || sub.name;
+          if (action.color !== undefined) sub.color = String(action.color).trim() || sub.color;
+          subjectsChanged = true;
+          results.push({ status: 'applied', index: idx, type, subjectId: sub.id });
+          return;
+        }
+
+        if (type === 'delete_subject') {
+          const sub = findSubjectRef(action);
+          if (!sub) throw new Error('Subject not found');
+          subjects = subjects.filter(s => s.id !== sub.id);
+          subjectsChanged = true;
+          results.push({ status: 'applied', index: idx, type, subjectId: sub.id });
+          return;
+        }
+
+        if (type === 'add_chapter') {
+          const sub = findSubjectRef(action);
+          if (!sub) throw new Error('Subject not found');
+          const name = String(action.name || '').trim();
+          if (!name) throw new Error('add_chapter requires name');
+          const parsedNum = Number(action.number);
+          const number = Number.isFinite(parsedNum) ? parsedNum : (sub.chapters.length + 1);
+          const chapter = {
+            id: action.chapterId || uid(),
+            name,
+            number,
+            definitions: [],
+            qa: [],
+            notes: String(action.notes || '')
+          };
+          sub.chapters.push(chapter);
+          subjectsChanged = true;
+          results.push({ status: 'applied', index: idx, type, subjectId: sub.id, chapterId: chapter.id });
+          return;
+        }
+
+        if (type === 'update_chapter') {
+          const sub = findSubjectRef(action);
+          if (!sub) throw new Error('Subject not found');
+          const chapter = findChapterRef(sub, action);
+          if (!chapter) throw new Error('Chapter not found');
+          if (action.name !== undefined) chapter.name = String(action.name).trim() || chapter.name;
+          if (action.number !== undefined) {
+            const parsedNum = Number(action.number);
+            if (Number.isFinite(parsedNum)) chapter.number = parsedNum;
+          }
+          if (action.notes !== undefined) chapter.notes = String(action.notes);
+          subjectsChanged = true;
+          results.push({ status: 'applied', index: idx, type, subjectId: sub.id, chapterId: chapter.id });
+          return;
+        }
+
+        if (type === 'delete_chapter') {
+          const sub = findSubjectRef(action);
+          if (!sub) throw new Error('Subject not found');
+          const chapter = findChapterRef(sub, action);
+          if (!chapter) throw new Error('Chapter not found');
+          sub.chapters = sub.chapters.filter(c => c.id !== chapter.id);
+          subjectsChanged = true;
+          results.push({ status: 'applied', index: idx, type, subjectId: sub.id, chapterId: chapter.id });
+          return;
+        }
+
+        if (type === 'add_definition') {
+          const sub = findSubjectRef(action);
+          if (!sub) throw new Error('Subject not found');
+          const chapter = findChapterRef(sub, action);
+          if (!chapter) throw new Error('Chapter not found');
+          const term = String(action.term || '').trim();
+          const definition = String(action.definition || '').trim();
+          if (!term || !definition) throw new Error('add_definition requires term and definition');
+          const def = { id: action.definitionId || uid(), term, definition, tags: cleanTags(action.tags) };
+          chapter.definitions.push(def);
+          subjectsChanged = true;
+          results.push({ status: 'applied', index: idx, type, subjectId: sub.id, chapterId: chapter.id, definitionId: def.id });
+          return;
+        }
+
+        if (type === 'update_definition') {
+          const sub = findSubjectRef(action);
+          if (!sub) throw new Error('Subject not found');
+          const chapter = findChapterRef(sub, action);
+          if (!chapter) throw new Error('Chapter not found');
+          const def = chapter.definitions.find(d => d.id === action.definitionId) || null;
+          if (!def) throw new Error('Definition not found');
+          if (action.term !== undefined) def.term = String(action.term).trim() || def.term;
+          if (action.definition !== undefined) def.definition = String(action.definition).trim() || def.definition;
+          if (action.tags !== undefined) def.tags = cleanTags(action.tags);
+          subjectsChanged = true;
+          results.push({ status: 'applied', index: idx, type, definitionId: def.id });
+          return;
+        }
+
+        if (type === 'delete_definition') {
+          const sub = findSubjectRef(action);
+          if (!sub) throw new Error('Subject not found');
+          const chapter = findChapterRef(sub, action);
+          if (!chapter) throw new Error('Chapter not found');
+          const before = chapter.definitions.length;
+          chapter.definitions = chapter.definitions.filter(d => d.id !== action.definitionId);
+          if (chapter.definitions.length === before) throw new Error('Definition not found');
+          subjectsChanged = true;
+          results.push({ status: 'applied', index: idx, type, definitionId: action.definitionId });
+          return;
+        }
+
+        if (type === 'add_qa') {
+          const sub = findSubjectRef(action);
+          if (!sub) throw new Error('Subject not found');
+          const chapter = findChapterRef(sub, action);
+          if (!chapter) throw new Error('Chapter not found');
+          const question = String(action.question || '').trim();
+          const answer = String(action.answer || '').trim();
+          if (!question || !answer) throw new Error('add_qa requires question and answer');
+          const qa = { id: action.qaId || uid(), question, answer, tags: cleanTags(action.tags) };
+          chapter.qa.push(qa);
+          subjectsChanged = true;
+          results.push({ status: 'applied', index: idx, type, qaId: qa.id });
+          return;
+        }
+
+        if (type === 'update_qa') {
+          const sub = findSubjectRef(action);
+          if (!sub) throw new Error('Subject not found');
+          const chapter = findChapterRef(sub, action);
+          if (!chapter) throw new Error('Chapter not found');
+          const qa = chapter.qa.find(q => q.id === action.qaId) || null;
+          if (!qa) throw new Error('Q&A not found');
+          if (action.question !== undefined) qa.question = String(action.question).trim() || qa.question;
+          if (action.answer !== undefined) qa.answer = String(action.answer).trim() || qa.answer;
+          if (action.tags !== undefined) qa.tags = cleanTags(action.tags);
+          subjectsChanged = true;
+          results.push({ status: 'applied', index: idx, type, qaId: qa.id });
+          return;
+        }
+
+        if (type === 'delete_qa') {
+          const sub = findSubjectRef(action);
+          if (!sub) throw new Error('Subject not found');
+          const chapter = findChapterRef(sub, action);
+          if (!chapter) throw new Error('Chapter not found');
+          const before = chapter.qa.length;
+          chapter.qa = chapter.qa.filter(q => q.id !== action.qaId);
+          if (chapter.qa.length === before) throw new Error('Q&A not found');
+          subjectsChanged = true;
+          results.push({ status: 'applied', index: idx, type, qaId: action.qaId });
+          return;
+        }
+
+        if (type === 'set_notes') {
+          const sub = findSubjectRef(action);
+          if (!sub) throw new Error('Subject not found');
+          const chapter = findChapterRef(sub, action);
+          if (!chapter) throw new Error('Chapter not found');
+          chapter.notes = String(action.notes || '');
+          subjectsChanged = true;
+          results.push({ status: 'applied', index: idx, type, chapterId: chapter.id });
+          return;
+        }
+
+        if (type === 'clear_history') {
+          history = [];
+          historyChanged = true;
+          results.push({ status: 'applied', index: idx, type });
+          return;
+        }
+
+        if (type === 'replace_history') {
+          if (!Array.isArray(action.history)) throw new Error('replace_history requires history array');
+          history = cloneDeep(action.history);
+          historyChanged = true;
+          results.push({ status: 'applied', index: idx, type });
+          return;
+        }
+
+        if (type === 'upsert_sr') {
+          const itemId = String(action.itemId || '').trim();
+          if (!itemId || !action.sr || typeof action.sr !== 'object') throw new Error('upsert_sr requires itemId and sr');
+          srData[itemId] = cloneDeep(action.sr);
+          srChanged = true;
+          results.push({ status: 'applied', index: idx, type, itemId });
+          return;
+        }
+
+        if (type === 'delete_sr_entry') {
+          const itemId = String(action.itemId || '').trim();
+          if (!itemId) throw new Error('delete_sr_entry requires itemId');
+          delete srData[itemId];
+          srChanged = true;
+          results.push({ status: 'applied', index: idx, type, itemId });
+          return;
+        }
+
+        throw new Error(`Unsupported action type: ${type}`);
+      } catch (error) {
+        results.push({ status: 'failed', index: idx, type, reason: error.message });
+      }
+    });
+
+    if (subjectsChanged) persist();
+    if (historyChanged) Store.saveHistory(history);
+    if (srChanged) Store.saveSR(srData);
+    if (subjectsChanged) refreshActiveView();
+    if ((subjectsChanged || srChanged) && typeof Features !== 'undefined' && Features.updateDueBanner) Features.updateDueBanner();
+
+    const applied = results.filter(r => r.status === 'applied').length;
+    const failed = results.filter(r => r.status === 'failed').length;
+    return { changed: subjectsChanged || historyChanged || srChanged, applied, failed, results };
+  }
+
   // ────── Init ──────
   renderSubjects();
 
@@ -581,6 +889,8 @@ const App = (() => {
     subjects: () => subjects, allChapters,
     currentSubjectId: () => currentSubjectId, currentChapterId: () => currentChapterId,
     currentSubject, currentChapter,
-    openSubject, openChapter, renderSubjects, renderSubjectDetail, renderChapterDetail, ICON, views
+    openSubject, openChapter, renderSubjects, renderSubjectDetail, renderChapterDetail, refreshActiveView,
+    getStudentDataSnapshot, applyAIActions,
+    ICON, views
   };
 })();

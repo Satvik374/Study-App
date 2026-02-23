@@ -76,6 +76,14 @@
                     <polyline points="12 6 12 12 16 14" />
                 </svg>
             </button>
+            <button id="btn-ai-nav" class="icon-btn" title="AI Study Teacher">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2a3 3 0 0 0-3 3v1a5 5 0 0 0-2 4v2a2 2 0 0 0 2 2h1v3a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2v-3h1a2 2 0 0 0 2-2v-2a5 5 0 0 0-2-4V5a3 3 0 0 0-3-3Z" />
+                    <path d="M9 11h6" />
+                    <path d="M9 15h2" />
+                </svg>
+            </button>
             <button id="btn-test-nav" class="pill-btn accent" title="Go to Test Mode">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
                     stroke-linecap="round" stroke-linejoin="round">
@@ -353,6 +361,60 @@
         </div>
     </main>
 
+    <!-- AI TEACHER -->
+    <main id="view-ai-teacher" class="view">
+        <div class="ai-teacher-layout">
+            <section class="ai-teacher-main glass-card">
+                <div class="section-header">
+                    <h2>AI Study Teacher</h2>
+                    <div class="header-actions">
+                        <button id="btn-ai-refresh-context" class="pill-btn secondary small">Refresh Context</button>
+                        <button id="btn-ai-generate-test" class="pill-btn accent small">Generate Test</button>
+                    </div>
+                </div>
+                <p class="subtitle">Personalized teaching based on your saved subjects, notes, weak areas, and progress.
+                </p>
+                <div class="ai-toolbar">
+                    <label class="ai-switch">
+                        <input id="ai-auto-apply" type="checkbox" checked />
+                        Allow AI data control
+                    </label>
+                    <span id="ai-context-stats" class="ai-context-stats">Context: loading...</span>
+                    <button id="btn-ai-clear-chat" class="pill-btn danger small">Clear Chat</button>
+                </div>
+                <div id="ai-api-status" class="ai-api-status hidden"></div>
+                <div id="ai-chat-thread" class="ai-chat-thread"></div>
+                <form id="ai-chat-form" class="ai-chat-form">
+                    <textarea id="ai-chat-input" class="input-field textarea"
+                        placeholder="Ask anything to study. Example: Teach me thermodynamics and test me from my notes."
+                        rows="4"></textarea>
+                    <button id="btn-ai-send" type="submit" class="pill-btn primary">Send</button>
+                </form>
+            </section>
+
+            <aside class="ai-teacher-side">
+                <div class="glass-card ai-format-card">
+                    <h3>Custom Math Text Format</h3>
+                    <p>Use these tokens when you want structured math output.</p>
+                    <div class="ai-format-list">
+                        <code>[[m: x^2 + y^2 = r^2 ]]</code>
+                        <code>[[m: sqrt(a^2 + b^2) ]]</code>
+                        <code>[[math]]</code>
+                        <code>sum_{i=1}^{n} i = n(n+1)/2</code>
+                        <code>int_0^1 x^2 dx = 1/3</code>
+                        <code>[[/math]]</code>
+                    </div>
+                </div>
+                <div class="glass-card ai-test-card">
+                    <h3>Personalized Test</h3>
+                    <div id="ai-test-container" class="ai-test-container">
+                        <p class="empty-state small">No AI-generated test yet.</p>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </main>
+
     <!-- MODAL -->
     <div id="modal-overlay" class="modal-overlay hidden">
         <div class="modal glass-card">
@@ -380,6 +442,7 @@
 
     <script src="app.js"></script>
     <script src="features.js"></script>
+    <script src="ai-teacher.js"></script>
 </body>
 
 </html>
