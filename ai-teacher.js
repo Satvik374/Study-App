@@ -48,15 +48,17 @@ const AITeacher = (() => {
     }));
   }
 
-  function addMessage(role, content) {
-    state.messages.push({
+  function addMessage(role, content, options = {}) {
+    const message = {
       id: crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
       role,
       content: String(content || ''),
       ts: Date.now()
-    });
+    };
+    state.messages.push(message);
     if (state.messages.length > 80) state.messages = state.messages.slice(-80);
-    saveState();
+    if (options.save !== false) saveState();
+    return message;
   }
 
   function setBusy(isBusy) {
@@ -256,9 +258,11 @@ const AITeacher = (() => {
     const modelMessages = state.messages
       .filter(m => m.role === 'user' || m.role === 'assistant')
       .map(m => ({ role: m.role, content: m.content }));
+    const assistantMessage = addMessage('assistant', '', { save: false });
+    renderChat();
 
     try {
-      const res = await fetch('/api/ai-teacher/chat', {
+      const res = await fetch('/api/ai-teacher/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -268,29 +272,81 @@ const AITeacher = (() => {
           studentSnapshot: snapshot
         })
       });
-      const payload = await res.json();
-      if (!res.ok) throw new Error(payload.error || payload.details || 'AI request failed');
+      if (!res.ok) {
+        let payload = null;
+        try { payload = await res.json(); } catch { }
+        throw new Error(payload?.error || payload?.details || `AI request failed (${res.status})`);
+      }
+      if (!res.body) throw new Error('No stream body returned from AI server.');
 
-      if (payload.reply && String(payload.reply).trim()) addMessage('assistant', String(payload.reply).trim());
-      else addMessage('assistant', 'No teaching text returned. Please try again.');
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let finalPayload = null;
+      let lastRenderAt = 0;
 
-      if (Array.isArray(payload.actions) && payload.actions.length) {
+      const renderStream = force => {
+        const now = Date.now();
+        if (force || now - lastRenderAt >= 70) {
+          renderChat();
+          lastRenderAt = now;
+        }
+      };
+
+      const handleLine = line => {
+        if (!line.trim()) return;
+        let evt = null;
+        try { evt = JSON.parse(line); } catch { return; }
+
+        if (evt.type === 'delta') {
+          assistantMessage.content += String(evt.delta || '');
+          renderStream(false);
+          return;
+        }
+        if (evt.type === 'final') {
+          finalPayload = evt;
+          if (typeof evt.reply === 'string' && evt.reply.trim()) assistantMessage.content = evt.reply.trim();
+          return;
+        }
+        if (evt.type === 'error') {
+          throw new Error(evt.details || evt.error || 'AI stream error');
+        }
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let splitAt = buffer.indexOf('\n');
+        while (splitAt >= 0) {
+          const line = buffer.slice(0, splitAt);
+          buffer = buffer.slice(splitAt + 1);
+          handleLine(line);
+          splitAt = buffer.indexOf('\n');
+        }
+      }
+      if (buffer.trim()) handleLine(buffer.trim());
+
+      if (!assistantMessage.content.trim()) assistantMessage.content = 'No teaching text returned. Please try again.';
+
+      if (Array.isArray(finalPayload?.actions) && finalPayload.actions.length) {
         if (els.autoApply.checked) {
-          const result = applyAIActions(payload.actions);
+          const result = applyAIActions(finalPayload.actions);
           summarizeActionResult(result);
           buildSnapshot();
         } else {
-          addMessage('system', `AI generated ${payload.actions.length} data action(s). Enable "Allow AI data control" to auto-apply.`);
+          addMessage('system', `AI generated ${finalPayload.actions.length} data action(s). Enable "Allow AI data control" to auto-apply.`);
         }
       }
 
-      if (payload.personalizedTest && typeof payload.personalizedTest === 'object') {
-        state.personalizedTest = payload.personalizedTest;
+      if (finalPayload?.personalizedTest && typeof finalPayload.personalizedTest === 'object') {
+        state.personalizedTest = finalPayload.personalizedTest;
         saveState();
       }
     } catch (error) {
       addMessage('system', `AI request error: ${error.message}`);
     } finally {
+      saveState();
       setBusy(false);
       renderChat();
       renderPersonalizedTest();

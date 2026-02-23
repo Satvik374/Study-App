@@ -38,6 +38,7 @@ http://localhost:3000
 - Supports OpenAI-compatible chat completion APIs through backend proxy (`server.js`).
 - Can propose and auto-apply structured data-control actions (subjects, chapters, definitions, Q&A, notes, history, SR data).
 - Generates personalized tests from your stored knowledge and weak areas.
+- Streams AI responses token-by-token in the chat UI.
 - Uses Custom Math Text format:
   - Inline: `[[m: expression ]]`
   - Block:
