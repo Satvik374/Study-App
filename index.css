@@ -34,6 +34,7 @@
     --transition: 0.3s cubic-bezier(.4, 0, .2, 1);
     --bounce: 0.5s cubic-bezier(.34, 1.56, .64, 1);
     --font: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-math: "STIX Two Math", "Cambria Math", "Latin Modern Math", "Times New Roman", serif;
     --topbar-bg: rgba(6, 6, 14, 0.78);
     --modal-overlay: rgba(0, 0, 0, .6);
     --aura1: rgba(139, 92, 246, 0.08);
@@ -1931,14 +1932,13 @@ select.input-field option {
 }
 
 .ai-math-inline {
-    display: inline-block;
-    padding: 1px 6px;
-    border-radius: 6px;
-    background: rgba(34, 197, 94, .12);
-    border: 1px solid rgba(34, 197, 94, .3);
-    color: #bbf7d0;
-    font-family: "Cascadia Mono", "Consolas", monospace;
-    font-size: .82rem
+    display: inline;
+    padding: 0 .12em;
+    color: var(--text-bright);
+    font-family: var(--font-math);
+    font-size: 1rem;
+    line-height: 1.35;
+    letter-spacing: .01em
 }
 
 .ai-math-block {
@@ -1949,9 +1949,11 @@ select.input-field option {
     margin: 8px 0;
     white-space: pre-wrap;
     color: var(--text-bright);
-    font-size: .84rem;
-    line-height: 1.55;
-    font-family: "Cascadia Mono", "Consolas", monospace
+    font-size: 1rem;
+    line-height: 1.65;
+    letter-spacing: .01em;
+    overflow-x: auto;
+    font-family: var(--font-math)
 }
 
 .ai-chat-form {

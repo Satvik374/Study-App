@@ -76,7 +76,8 @@ const AITeacher = (() => {
       '**Welcome to your AI Study Teacher.**',
       '- I can teach any topic and personalize explanations using your saved data.',
       '- I can generate personalized tests from your subjects, chapters, and weak areas.',
-      '- I follow Custom Math Text format, for example `[[m: x^2 + y^2 = r^2 ]]`.'
+      '- I use inline math tokens for short formulas, for example `[[m: x^2 + y^2 = r^2 ]]`.',
+      '- I use block math tokens for multi-line derivations using `[[math]]` and `[[/math]]`.'
     ].join('\n'));
   }
 
